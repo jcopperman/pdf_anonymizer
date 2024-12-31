@@ -1,3 +1,6 @@
 pdf_env
 __pycache__
 .codegpt
+.aider*
+
+.codegpt

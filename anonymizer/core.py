@@ -2,20 +2,14 @@
 
 import logging
 from typing import Dict, Optional
-from utils.ocr import OCRProcessor
-from utils.pdf_utils import PDFProcessor
-from .detector import PatternManager
-from .replacer import ReplacementManager
+from utils.pdf_utils import PDFAnonymizer as PDFUtils
 
 class PDFAnonymizer:
     def __init__(self, config: Optional[Dict] = None):
         """Initialize the PDF Anonymizer with optional configuration."""
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
-        self.ocr_processor = OCRProcessor()
-        self.pdf_processor = PDFProcessor()
-        self.pattern_manager = PatternManager()
-        self.replacement_manager = ReplacementManager(self.config)
+        self.pdf_utils = PDFUtils()
 
     def detect_pii(self, file_path: str) -> Dict:
         """
@@ -28,20 +22,7 @@ class PDFAnonymizer:
             Dictionary of detected PII by category
         """
         try:
-            # Extract text from PDF
-            text = self.pdf_processor.extract_text(file_path)
-            
-            # Process any images in the PDF using OCR
-            images_text = self.pdf_processor.process_images(file_path, self.ocr_processor)
-            
-            # Combine text from PDF and OCR
-            full_text = f"{text}\n{images_text}"
-            
-            # Detect PII in the combined text
-            pii_matches = self.pattern_manager.detect_pii(full_text)
-            
-            return pii_matches
-            
+            return self.pdf_utils.detect_pii(file_path)
         except Exception as e:
             self.logger.error(f"Error detecting PII: {str(e)}")
             raise
@@ -59,30 +40,16 @@ class PDFAnonymizer:
             bool: True if successful, False otherwise
         """
         try:
-            # Detect PII
-            pii_matches = self.detect_pii(input_path)
-            
-            # Filter selected categories
-            selected_matches = {
-                category: matches 
-                for category, matches in pii_matches.items() 
-                if selected_categories.get(category, False)
-            }
-            
-            # Process the PDF with replacements
-            success = self.pdf_processor.process_with_replacements(
+            return self.pdf_utils.anonymize_pdf(
                 input_path,
                 output_path,
-                selected_matches,
-                self.replacement_manager
+                selected_categories
             )
-            
-            return success
-            
         except Exception as e:
             self.logger.error(f"Error anonymizing PDF: {str(e)}")
             return False
 
     def get_supported_categories(self) -> list:
         """Get list of supported PII categories."""
-        return self.pattern_manager.get_supported_categories()
+        return list(self.pdf_utils.pattern_manager.patterns.keys())
+
